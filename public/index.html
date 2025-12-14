@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>學生資訊管理系統</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        table,
+        th,
+        td {
+            border: gray 2px solid;
+            border-collapse: collapse;
+            padding: 8px;
+        }
+
+        table {
+            margin-bottom: 20px;
+        }
+
+        form {
+            margin-bottom: 20px;
+        }
+
+        input,
+        button {
+            padding: 8px;
+            margin: 5px;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .delete-btn {
+            background-color: #f44336;
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+
+        .delete-btn:hover {
+            background-color: #da190b;
+        }
+
+        .edit-btn {
+            background-color: #2196F3;
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+
+        .edit-btn:hover {
+            background-color: #0b7dda;
+        }
+
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+
+        .success {
+            color: green;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>學生列表</h1>
+
+    <table id="student-list" style="width: 80%">
+        <tr>
+            <th>Name</th>
+            <th>Age</th>
+            <th>Grade</th>
+            <th>Actions</th>
+        </tr>
+    </table>
+
+    <h2>新增學生</h2>
+
+    <form id="add-student-form">
+        <label for="name">姓名：</label>
+        <input type="text" id="name" name="name" required>
+
+        <label for="age">年齡：</label>
+        <input type="number" id="age" name="age" required>
+
+        <label for="grade">年級：</label>
+        <input type="text" id="grade" name="grade" required>
+
+        <button type="submit">新增</button>
+    </form>
+
+    <div id="message"></div>
+
+    <script>
+        const BASE_URL = '';
+
+        async function loadStudents() {
+            const studentList = document.getElementById('student-list');
+            // Clear existing rows except header
+            const rows = studentList.querySelectorAll('tr');
+            rows.forEach((row, index) => {
+                if (index > 0) row.remove();
+            });
+
+            try {
+                const response = await fetch(`${BASE_URL}/students`);
+                const students = await response.json();
+
+                students.forEach(student => {
+                    const actionsHtml = `
+                        <button class="edit-btn" onclick="editStudent('${student._id}', '${student.name}', ${student.age}, '${student.grade}')">編輯</button>
+                        <button class="delete-btn" onclick="deleteStudent('${student._id}')">刪除</button>
+                    `;
+                    studentList.insertAdjacentHTML(
+                        'beforeend',
+                        `<tr>
+                            <td>${student.name}</td>
+                            <td>${student.age}歲</td>
+                            <td>${student.grade}年級</td>
+                            <td>${actionsHtml}</td>
+                        </tr>`
+                    );
+                });
+            } catch (err) {
+                console.error('取得學生資料失敗：', err);
+                showMessage('取得學生資料失敗', 'error');
+            }
+        }
+
+        async function deleteStudent(id) {
+            if (!confirm('確定要刪除此學生嗎？')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${BASE_URL}/students/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    throw new Error('刪除失敗');
+                }
+
+                showMessage('學生已刪除', 'success');
+                loadStudents();
+            } catch (err) {
+                console.error('刪除學生失敗：', err);
+                showMessage('刪除學生失敗', 'error');
+            }
+        }
+
+        function editStudent(id, name, age, grade) {
+            const newName = prompt('編輯姓名：', name);
+            if (newName === null) return;
+
+            const newAge = prompt('編輯年齡：', age);
+            if (newAge === null) return;
+
+            const newGrade = prompt('編輯年級：', grade);
+            if (newGrade === null) return;
+
+            updateStudent(id, newName, newAge, newGrade);
+        }
+
+        async function updateStudent(id, name, age, grade) {
+            try {
+                const response = await fetch(`${BASE_URL}/students/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name, age: parseInt(age), grade })
+                });
+
+                if (!response.ok) {
+                    throw new Error('更新失敗');
+                }
+
+                showMessage('學生資訊已更新', 'success');
+                loadStudents();
+            } catch (err) {
+                console.error('更新學生失敗：', err);
+                showMessage('更新學生失敗', 'error');
+            }
+        }
+
+        function showMessage(message, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = message;
+            messageDiv.className = type;
+            setTimeout(() => {
+                messageDiv.textContent = '';
+                messageDiv.className = '';
+            }, 3000);
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadStudents();
+
+            // 監聽新增學生表單
+            document.getElementById('add-student-form').addEventListener('submit', async (event) => {
+                event.preventDefault();
+
+                const name = document.getElementById('name').value;
+                const age = document.getElementById('age').value;
+                const grade = document.getElementById('grade').value;
+
+                try {
+                    const response = await fetch(`${BASE_URL}/students`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ name, age: parseInt(age), grade })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('新增失敗');
+                    }
+
+                    const newStudent = await response.json();
+
+                    showMessage('學生已新增', 'success');
+                    event.target.reset();
+                    loadStudents();
+                } catch (err) {
+                    console.error('新增學生失敗：', err);
+                    showMessage('新增學生失敗', 'error');
+                }
+            });
+        });
+    </script>
+
+</body>
+
+</html>
